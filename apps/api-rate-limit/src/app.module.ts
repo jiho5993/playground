@@ -1,7 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MysqlConfigServiceFactory } from '@mynest/config';
-import { TypeOrmConfig } from '../app/app.constant';
 import { UserModule } from './user/user.module';
 import { UserRateLimitSettingModule } from './user-rate-limit-setting/user-rate-limit-setting.module';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
@@ -11,9 +10,20 @@ import { TokenGuard } from '../app/guards/token.guard';
 import * as Entities from '@mynest/entity';
 import { RequestMiddleware } from '../app/middlewares/request.middleware';
 import { AllExceptionFilter } from '@mynest/common';
+import { config } from '../app/config/config.service';
 
 const TypeOrmRootModule = TypeOrmModule.forRootAsync({
-  useClass: MysqlConfigServiceFactory(TypeOrmConfig, Object.values(Entities)),
+  useClass: MysqlConfigServiceFactory(
+    {
+      mysqlHost: config.mysqlHost,
+      mysqlPort: config.mysqlPort,
+      mysqlUsername: config.mysqlUsername,
+      mysqlPassword: config.mysqlPassword,
+      mysqlDatabase: config.mysqlDatabase,
+      mysqlConnectionLimit: config.mysqlPoolSize,
+    },
+    Object.values(Entities),
+  ),
 });
 
 @Module({

@@ -2,7 +2,7 @@ import { ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
 import { Resolvable, ThrottlerGuard } from '@nestjs/throttler';
 import { THROTTLER_SKIP, THROTTLER_TTL } from '@nestjs/throttler/dist/throttler.constants';
 import { ThrottlerLimitDetail } from '@nestjs/throttler/dist/throttler.guard.interface';
-import { UserRateLimitSettingStatus } from '@mynest/entity';
+import { UserRateLimitSetting, UserRateLimitSettingStatus, UserRateLimitSettingType } from '@mynest/entity';
 import { ClientRequestException, ERROR_CODE, IRequestContext } from '@mynest/common';
 
 @Injectable()
@@ -55,15 +55,11 @@ export class ThrottlerBehindProxyGuard extends ThrottlerGuard {
     return continues.every((cont) => cont);
   }
 
-  // protected async getTracker(req: Record<string, any>): Promise<string> {
-  //   return req.;
-  // }
-
   protected generateKey(context: ExecutionContext, suffix: string, name: string): string {
     const req = context.switchToHttp().getRequest<IRequestContext>();
     const user = req.context.getUser();
 
-    return `rate-limit:${name}:user-index:${user.id}`;
+    return UserRateLimitSetting.createHitCountKey(user.id, name as UserRateLimitSettingType);
   }
 
   protected async throwThrottlingException(context: ExecutionContext, throttlerLimitDetail: ThrottlerLimitDetail): Promise<void> {

@@ -3,14 +3,15 @@ import { ThrottlerModule as NestJSThrottlerModule } from '@nestjs/throttler';
 import { RedisModule, RedisService } from '@mynest/redis';
 import { UserRateLimitSettingType } from '@mynest/entity';
 import { ThrottlerStorageRedisService } from './throttler-storage-redis.service';
+import { config } from '../config/config.service';
 
 @Module({
   imports: [
     NestJSThrottlerModule.forRootAsync({
       imports: [
         RedisModule.register({
-          host: 'localhost',
-          port: 16379,
+          host: config.redisHost,
+          port: config.redisPort,
         }),
       ],
       inject: [RedisService],

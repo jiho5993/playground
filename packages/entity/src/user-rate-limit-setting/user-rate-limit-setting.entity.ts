@@ -28,4 +28,12 @@ export class UserRateLimitSetting {
 
   @UpdateDateColumn()
   modifiedDate: Date;
+
+  static createHitCountKey(userId: string, type: UserRateLimitSettingType) {
+    return `rate-limit:${type}:user-index:${userId}:hit-count`;
+  }
+
+  static createSettingKey(userId: string) {
+    return `rate-limit:user-index:${userId}:setting`;
+  }
 }

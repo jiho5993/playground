@@ -19,7 +19,7 @@ export class TokenGuard implements CanActivate {
       throw new ClientRequestException(ERROR_CODE.ERR_0010001, HttpStatus.BAD_REQUEST);
     }
 
-    const rateLimitSettings = await this.userRateLimitSettingService.getRateLimitSettings(user.id);
+    const rateLimitSettings = await this.userRateLimitSettingService.getRateLimitSettingsByRedis(user.id);
 
     req.context.setUser(user);
     req.context.setRateLimitSettings(rateLimitSettings);

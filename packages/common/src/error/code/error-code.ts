@@ -6,5 +6,6 @@ export enum ERROR_CODE {
   ERR_0000005 = 'Not Found.',
   ERR_0000006 = 'Too many requests. Please try again later.',
 
+  // User Error
   ERR_0010001 = 'User not found',
 }
