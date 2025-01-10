@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UserRateLimitSettingRepository } from './user-rate-limit-setting.repository';
-import { UserRateLimitSetting } from '@mynest/entity';
-import { RedisService } from '@mynest/redis';
+import { UserRateLimitSetting } from '@playground/entity';
+import { RedisService } from '@playground/redis';
 import { config } from '../../app/config/config.service';
 
 @Injectable()

@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
-import { ClientRequestException, ERROR_CODE, IRequestContext } from '@mynest/common';
+import { ClientRequestException, ERROR_CODE, IRequestContext } from '@playground/common';
 import { UserService } from '../../src/user/user.service';
 import { UserRateLimitSettingService } from '../../src/user-rate-limit-setting/user-rate-limit-setting.service';
 

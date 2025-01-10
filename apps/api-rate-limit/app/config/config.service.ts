@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as Joi from 'joi';
-import { ENV } from '@mynest/config';
+import { ENV } from '@playground/config';
 
 export type EnvConfig = Record<string, any>;
 

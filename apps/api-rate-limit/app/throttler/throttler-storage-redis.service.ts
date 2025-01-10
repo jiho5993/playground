@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { RedisService } from '@mynest/redis';
+import { RedisService } from '@playground/redis';
 import { ThrottlerStorageRecord } from '@nestjs/throttler/dist/throttler-storage-record.interface';
 import { ThrottlerStorage } from '@nestjs/throttler/dist/throttler-storage.interface';
 

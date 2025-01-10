@@ -2,8 +2,8 @@ import { ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
 import { Resolvable, ThrottlerGuard } from '@nestjs/throttler';
 import { THROTTLER_SKIP, THROTTLER_TTL } from '@nestjs/throttler/dist/throttler.constants';
 import { ThrottlerLimitDetail } from '@nestjs/throttler/dist/throttler.guard.interface';
-import { UserRateLimitSetting, UserRateLimitSettingStatus, UserRateLimitSettingType } from '@mynest/entity';
-import { ClientRequestException, ERROR_CODE, IRequestContext } from '@mynest/common';
+import { UserRateLimitSetting, UserRateLimitSettingStatus, UserRateLimitSettingType } from '@playground/entity';
+import { ClientRequestException, ERROR_CODE, IRequestContext } from '@playground/common';
 
 @Injectable()
 export class ThrottlerBehindProxyGuard extends ThrottlerGuard {

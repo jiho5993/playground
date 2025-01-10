@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '@mynest/entity';
+import { User } from '@playground/entity';
 import { FindOptionsWhere, Repository } from 'typeorm';
 
 @Injectable()

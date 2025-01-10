@@ -20,10 +20,10 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@mynest/common": "workspace:*",
-    "@mynest/config": "workspace:*",
-    "@mynest/entity": "workspace:*",
-    "@mynest/redis": "workspace:*",
+    "@playground/common": "workspace:*",
+    "@playground/config": "workspace:*",
+    "@playground/entity": "workspace:*",
+    "@playground/redis": "workspace:*",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",

@@ -1,4 +1,4 @@
-import { User, UserRateLimitSetting } from '@mynest/entity';
+import { User, UserRateLimitSetting } from '@playground/entity';
 
 export class RequestContext {
   private user: User;

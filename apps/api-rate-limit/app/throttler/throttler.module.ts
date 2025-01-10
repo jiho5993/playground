@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule as NestJSThrottlerModule } from '@nestjs/throttler';
-import { RedisModule, RedisService } from '@mynest/redis';
-import { UserRateLimitSettingType } from '@mynest/entity';
+import { RedisModule, RedisService } from '@playground/redis';
+import { UserRateLimitSettingType } from '@playground/entity';
 import { ThrottlerStorageRedisService } from './throttler-storage-redis.service';
 import { config } from '../config/config.service';
 

@@ -23,16 +23,16 @@ importers:
 
   apps/api-rate-limit:
     dependencies:
-      '@mynest/common':
+      '@playground/common':
         specifier: workspace:*
         version: link:../../packages/common
-      '@mynest/config':
+      '@playground/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@mynest/entity':
+      '@playground/entity':
         specifier: workspace:*
         version: link:../../packages/entity
-      '@mynest/redis':
+      '@playground/redis':
         specifier: workspace:*
         version: link:../../packages/redis
       '@nestjs/common':
@@ -138,7 +138,7 @@ importers:
 
   packages/common:
     dependencies:
-      '@mynest/entity':
+      '@playground/entity':
         specifier: workspace:*
         version: link:../entity
       '@nestjs/common':

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { UserRateLimitSetting } from '@mynest/entity';
+import { UserRateLimitSetting } from '@playground/entity';
 import { FindOptionsWhere, Repository } from 'typeorm';
 
 @Injectable()
