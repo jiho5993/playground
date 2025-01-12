@@ -23,18 +23,6 @@ importers:
 
   apps/api-rate-limit:
     dependencies:
-      '@playground/common':
-        specifier: workspace:*
-        version: link:../../packages/common
-      '@playground/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@playground/entity':
-        specifier: workspace:*
-        version: link:../../packages/entity
-      '@playground/redis':
-        specifier: workspace:*
-        version: link:../../packages/redis
       '@nestjs/common':
         specifier: ^10.0.0
         version: 10.4.1(reflect-metadata@0.1.14)(rxjs@7.8.1)
@@ -50,6 +38,18 @@ importers:
       '@nestjs/typeorm':
         specifier: ^10.0.2
         version: 10.0.2(@nestjs/common@10.4.1(reflect-metadata@0.1.14)(rxjs@7.8.1))(@nestjs/core@10.4.1(@nestjs/common@10.4.1(reflect-metadata@0.1.14)(rxjs@7.8.1))(@nestjs/platform-express@10.4.1)(reflect-metadata@0.1.14)(rxjs@7.8.1))(reflect-metadata@0.1.14)(rxjs@7.8.1)(typeorm@0.3.20(ioredis@5.4.1)(mysql2@3.11.3)(ts-node@10.9.2(@types/node@20.16.5)(typescript@5.6.2)))
+      '@playground/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      '@playground/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@playground/entity':
+        specifier: workspace:*
+        version: link:../../packages/entity
+      '@playground/redis':
+        specifier: workspace:*
+        version: link:../../packages/redis
       dotenv:
         specifier: ^16.4.7
         version: 16.4.7
@@ -138,12 +138,12 @@ importers:
 
   packages/common:
     dependencies:
-      '@playground/entity':
-        specifier: workspace:*
-        version: link:../entity
       '@nestjs/common':
         specifier: ^10.0.0
         version: 10.4.1(reflect-metadata@0.2.2)(rxjs@7.8.1)
+      '@playground/entity':
+        specifier: workspace:*
+        version: link:../entity
       express:
         specifier: ^4.21.2
         version: 4.21.2
@@ -319,7 +319,7 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
       ws:
-        specifier: ^8.16.0
+        specifier: ^8.18.0
         version: 8.18.0
     devDependencies:
       '@types/jest':
