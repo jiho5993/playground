@@ -89,12 +89,3 @@ export class ConfigService {
 }
 
 export const config = new ConfigService('.env');
-
-if (!global.__exposedConfig) {
-  Object.defineProperty(global, '__exposedConfig', {
-    value: { projectName: config.projectName },
-    enumerable: false,
-    configurable: false,
-    writable: false,
-  });
-}
