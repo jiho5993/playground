@@ -6,7 +6,7 @@ export default new DataSource({
   port: 13306,
   username: 'root',
   password: '1234',
-  database: 'mytest',
+  database: 'playground',
   synchronize: false,
   logging: false,
   entities: ['src/**/*.ts'],
