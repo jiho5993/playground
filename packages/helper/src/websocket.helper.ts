@@ -1,6 +1,7 @@
 import WebSocket, { PerMessageDeflateOptions } from 'ws';
 import http from 'http';
 import * as _ from 'lodash';
+import { v4 as uuidv4 } from 'uuid';
 
 export type WebsocketState = 0 | 1 | 2 | 3;
 
@@ -31,7 +32,6 @@ export class WebsocketClient {
   private readonly reconnectConfig: IReconnectConfig;
   private reconnectAttempts = 0;
 
-  private requestId = 0;
   private promiseAwaitingResponse = new Map<string | number, any>();
 
   constructor(url: string, config: IClientConfig = {}) {
@@ -73,8 +73,7 @@ export class WebsocketClient {
       return payload.id;
     }
 
-    this.requestId += 1;
-    return this.requestId;
+    return uuidv4();
   }
 
   createRequestMessage(requestId: string | number, payload: any): string {

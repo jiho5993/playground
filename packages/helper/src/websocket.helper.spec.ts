@@ -2,8 +2,8 @@ import WebSocket from 'ws';
 import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, IClientConfig, WebsocketClient } from './websocket.helper';
 
 describe('WebSocketHelper', () => {
+  const WEBSOCKET_SERVER_URL = 'ws://localhost:8080/';
   const wss = new WebSocket.Server({ port: 8080 });
-  const url = 'ws://localhost:8080/';
 
   beforeAll(() => {
     /** 메시지를 그대로 반환하는 테스트용 웹소켓 서버 생성 */
@@ -22,14 +22,14 @@ describe('WebSocketHelper', () => {
   describe('Websocket created constructor', () => {
     describe('clientConfig 설정', () => {
       it('config가 없어도 인스턴스 생성이 된다', () => {
-        const result = new WebsocketClient(url);
+        const result = new WebsocketClient(WEBSOCKET_SERVER_URL);
 
         expect(result).toBeInstanceOf(WebsocketClient);
         expect(result.isConnected()).not.toBeTruthy();
 
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        expect(result.url).toEqual(url);
+        expect(result.url).toEqual(WEBSOCKET_SERVER_URL);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         expect(result.clientConfig.maxPayload).toEqual(DEFAULT_MAX_PAYLOAD);
@@ -52,7 +52,7 @@ describe('WebSocketHelper', () => {
           protocolVersion: 8,
           handshakeTimeout: 30000,
         };
-        const result = new WebsocketClient(url, config);
+        const result = new WebsocketClient(WEBSOCKET_SERVER_URL, config);
         await result.createConnection();
 
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -66,7 +66,7 @@ describe('WebSocketHelper', () => {
 
     describe('client 생성', () => {
       it('connection이 이뤄지지 않았기 때문에 client 정보가 없다.', () => {
-        const result = new WebsocketClient(url);
+        const result = new WebsocketClient(WEBSOCKET_SERVER_URL);
 
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
@@ -75,7 +75,7 @@ describe('WebSocketHelper', () => {
       });
 
       it('connection이 발생하면 receiver 정보가 반영되고, 기본으로 설정된 config가 반영된다.', async () => {
-        const result = new WebsocketClient(url);
+        const result = new WebsocketClient(WEBSOCKET_SERVER_URL);
         await result.createConnection();
 
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -98,7 +98,7 @@ describe('WebSocketHelper', () => {
       });
 
       it('createWithConnection 함수를 통해서 서버와 연결된 웹소켓 인스턴스를 생성할 수 있다.', async () => {
-        const result = await WebsocketClient.createWithConnection(url);
+        const result = await WebsocketClient.createWithConnection(WEBSOCKET_SERVER_URL);
 
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
@@ -109,17 +109,19 @@ describe('WebSocketHelper', () => {
 
     describe('메시지 요청 및 응답', () => {
       it('메시지 요청에 성공하면 requestId가 1로 할당되고, 요청과 같은 응답 메시지를 받는다', async () => {
-        const client = new WebsocketClient(url);
+        const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
         await client.createConnection();
 
         const payload = { message: 'Hello, World!' };
-        const result = await client.sendReceiveMessage(payload);
 
-        expect(result).toEqual({ ...payload, id: 1 });
+        const id = client.createRequestId(payload);
+        const result = await client.sendReceiveMessage({ ...payload, id });
+
+        expect(result).toEqual({ ...payload, id });
       });
 
       it('requestId를 작접 할당하고, 메시지를 보내면 할당된 requestId로 응답을 받는다.', async () => {
-        const client = new WebsocketClient(url);
+        const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
         await client.createConnection();
 
         const payload = { message: 'assigned request id.', id: 4 };
@@ -129,7 +131,7 @@ describe('WebSocketHelper', () => {
       });
 
       it('여러 메시지를 일괄 요청하고 응답을 받을 수 있다.', async () => {
-        const client = new WebsocketClient(url);
+        const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
         await client.createConnection();
 
         const payloads = [
@@ -143,7 +145,7 @@ describe('WebSocketHelper', () => {
       });
 
       it('메시지를 여러번 보낼때, 응답의 순서가 꼬이지 않게 수신한다. (Promise.all / Batch)', async () => {
-        const client = new WebsocketClient(url);
+        const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
         await client.createConnection();
 
         const payloads = [
@@ -169,7 +171,7 @@ describe('WebSocketHelper', () => {
 
   describe('Websocket created static createWithConnection function', () => {
     it('connection이 올바르게 형성된다', async () => {
-      const result = await WebsocketClient.createWithConnection(url);
+      const result = await WebsocketClient.createWithConnection(WEBSOCKET_SERVER_URL);
 
       expect(result).toBeInstanceOf(WebsocketClient);
 
@@ -183,7 +185,7 @@ describe('WebSocketHelper', () => {
       expect(result.client).not.toBeNull();
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      expect(result.client.url).toEqual(url);
+      expect(result.client.url).toEqual(WEBSOCKET_SERVER_URL);
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       expect(result.client._receiver).not.toBeNull();
@@ -200,7 +202,7 @@ describe('WebSocketHelper', () => {
         maxPayload: 100 * 1024,
         autoPong: false,
       };
-      const result = await WebsocketClient.createWithConnection(url, config);
+      const result = await WebsocketClient.createWithConnection(WEBSOCKET_SERVER_URL, config);
 
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
@@ -219,7 +221,7 @@ describe('WebSocketHelper', () => {
   describe('Websocket reconnect', () => {
     describe('reconnectConfig 설정', () => {
       it('reconnectConfig를 설정하지 않으면, 기본값으로 설정된다', () => {
-        const result = new WebsocketClient(url);
+        const result = new WebsocketClient(WEBSOCKET_SERVER_URL);
 
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
@@ -239,7 +241,7 @@ describe('WebSocketHelper', () => {
           attempts: 50,
         };
         const clientConfig = { reconnectConfig };
-        const result = new WebsocketClient(url, clientConfig);
+        const result = new WebsocketClient(WEBSOCKET_SERVER_URL, clientConfig);
 
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
