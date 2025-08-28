@@ -179,8 +179,12 @@ export class WebsocketClient {
   }
 
   private onClose(code: number, reason: any): void {
-    this.client.removeAllListeners();
-    this.client = null;
+    if (this.isConnected()) {
+      this.client.removeAllListeners();
+      this.client = null;
+    } else {
+      this.onConnectionFailed(new Error('Connection closed'));
+    }
   }
 
   private reconnect(): void {
