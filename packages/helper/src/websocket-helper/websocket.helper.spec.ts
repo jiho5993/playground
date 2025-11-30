@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import { WebsocketClient } from './websocket.helper';
-import { IClientConfig } from './websocket.config';
+import { IClientConfig } from './websocket.interface';
 import { DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_DELAY } from './websocket.constant';
 
 describe('WebSocketHelper', () => {

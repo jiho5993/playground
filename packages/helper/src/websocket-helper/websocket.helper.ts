@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import * as _ from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
-import { IClientConfig, IReconnectConfig } from './websocket.config';
+import { IClientConfig, IReconnectConfig } from './websocket.interface';
 import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, WebsocketState } from './websocket.constant';
 
 export class WebsocketClient {
