@@ -1,29 +1,8 @@
-import WebSocket, { PerMessageDeflateOptions } from 'ws';
-import http from 'http';
+import WebSocket from 'ws';
 import * as _ from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
-
-export type WebsocketState = 0 | 1 | 2 | 3;
-
-export const DEFAULT_MAX_PAYLOAD = 100 * 1024 * 1024;
-export const DEFAULT_RECONNECT_DELAY = 1000;
-export const DEFAULT_RECONNECT_ATTEMPTS = 5;
-
-export interface IReconnectConfig {
-  reconnect?: boolean;
-  delay?: number;
-  attempts?: number;
-}
-
-export interface IClientConfig {
-  agent?: http.Agent;
-  autoPong?: boolean;
-  maxPayload?: number;
-  protocolVersion?: number;
-  perMessageDeflate?: boolean | PerMessageDeflateOptions;
-  handshakeTimeout?: number;
-  reconnectConfig?: IReconnectConfig;
-}
+import { IClientConfig, IReconnectConfig } from './websocket.config';
+import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, WebsocketState } from './websocket.constant';
 
 export class WebsocketClient {
   private client: WebSocket | null = null;

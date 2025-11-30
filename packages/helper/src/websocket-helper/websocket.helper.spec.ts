@@ -1,5 +1,7 @@
 import WebSocket from 'ws';
-import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, IClientConfig, WebsocketClient } from './websocket.helper';
+import { WebsocketClient } from './websocket.helper';
+import { IClientConfig } from './websocket.config';
+import { DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_DELAY } from './websocket.constant';
 
 describe('WebSocketHelper', () => {
   const WEBSOCKET_SERVER_URL = 'ws://localhost:8080/';
