@@ -223,6 +223,9 @@ importers:
 
   apps/mytest:
     dependencies:
+      '@playground/entity':
+        specifier: workspace:*
+        version: link:../../packages/entity
       '@playground/helper':
         specifier: workspace:*
         version: link:../../packages/helper
