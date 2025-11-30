@@ -285,3 +285,6 @@ build/
 
 # Build cache manifests
 *.tsbuildinfo
+
+# my playground
+apps/mytest

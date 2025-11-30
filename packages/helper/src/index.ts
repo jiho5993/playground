@@ -1,3 +1,1 @@
-import * as websocketHelper from './websocket.helper';
-
-export { websocketHelper };
+export * from './websocket-helper';
