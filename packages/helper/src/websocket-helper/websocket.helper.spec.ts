@@ -1,7 +1,8 @@
 import WebSocket from 'ws';
 import { WebsocketClient } from './websocket.helper';
-import { IClientConfig } from './websocket.config';
+import { ClientConfig, RpcInputData } from './websocket.interface';
 import { DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_DELAY } from './websocket.constant';
+import { validate as uuidValidate } from 'uuid';
 
 describe('WebSocketHelper', () => {
   const WEBSOCKET_SERVER_URL = 'ws://localhost:8080/';
@@ -47,7 +48,7 @@ describe('WebSocketHelper', () => {
       });
 
       it('config 정보를 기입하면 해당 정보가 반영된다', async () => {
-        const config: IClientConfig = {
+        const config: ClientConfig = {
           maxPayload: 100 * 1024,
           autoPong: false,
           perMessageDeflate: false,
@@ -110,62 +111,51 @@ describe('WebSocketHelper', () => {
     });
 
     describe('메시지 요청 및 응답', () => {
-      it('메시지 요청에 성공하면 requestId가 1로 할당되고, 요청과 같은 응답 메시지를 받는다', async () => {
+      it('메시지 요청에 성공하면 requestId가 uuid v4로 할당되고, json-rpc 2.0 spec을 만족하는 요청과 같은 응답 메시지를 받는다', async () => {
         const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
         await client.createConnection();
 
-        const payload = { message: 'Hello, World!' };
+        const payload: RpcInputData = { method: 'Hello, World!', params: [] };
 
-        const id = client.createRequestId(payload);
-        const result = await client.sendReceiveMessage({ ...payload, id });
+        const result = await client.sendReceiveRpcCall({ ...payload });
 
-        expect(result).toEqual({ ...payload, id });
+        expect(result.id).toBeDefined();
+        expect(result).toHaveProperty('jsonrpc', '2.0');
+        expect(result).toHaveProperty('method', 'Hello, World!');
+        expect(result).toHaveProperty('params', []);
       });
 
-      it('requestId를 작접 할당하고, 메시지를 보내면 할당된 requestId로 응답을 받는다.', async () => {
+      it('1000번의 요청 모두 올바른 uuid를 생성한다.', async () => {
         const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
         await client.createConnection();
 
-        const payload = { message: 'assigned request id.', id: 4 };
-        const result = await client.sendReceiveMessage(payload);
+        for (let i = 1; i <= 1000; i++) {
+          const payload: RpcInputData = { method: 'Hello, World!', params: [] };
 
-        expect(result).toEqual(payload);
+          const result = await client.sendReceiveRpcCall({ ...payload });
+
+          expect(result.id).toBeDefined();
+          expect(uuidValidate(result.id)).toBeTruthy();
+        }
       });
 
       it('여러 메시지를 일괄 요청하고 응답을 받을 수 있다.', async () => {
         const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
         await client.createConnection();
 
-        const payloads = [
-          { message: '1st message', id: 1 },
-          { message: '2nd message', id: 2 },
-          { message: '3rd message', id: 3 },
+        const payloads: RpcInputData = [
+          { method: '1st message', params: [] },
+          { method: '2nd message', params: [] },
+          { method: '3rd message', params: [] },
         ];
-        const result = await client.sendReceiveMessage(payloads);
+        const result = await client.sendReceiveRpcCall(payloads);
 
-        expect(result).toEqual(payloads);
-      });
+        expect(result).toBeInstanceOf(Array);
+        expect(result).toHaveLength(3);
 
-      it('메시지를 여러번 보낼때, 응답의 순서가 꼬이지 않게 수신한다. (Promise.all / Batch)', async () => {
-        const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
-        await client.createConnection();
-
-        const payloads = [
-          { message: '1st message', id: 1 },
-          { message: '3rd message', id: 3 },
-          { message: '2nd message', id: 2 },
-        ];
-
-        // Promise.all
-        const promiseAllResult = await Promise.all(payloads.map((payload) => client.sendReceiveMessage(payload)));
-        for (let i = 0; i < payloads.length; i += 1) {
-          expect(promiseAllResult[i].id).toEqual(payloads[i].id);
-        }
-
-        // Batch
-        const batchResult = await client.sendReceiveMessage(payloads);
-        for (let i = 0; i < payloads.length; i += 1) {
-          expect(batchResult[i].id).toEqual(payloads[i].id);
+        for (const response of result) {
+          expect(response.id).toBeDefined();
+          expect(response).toHaveProperty('jsonrpc', '2.0');
         }
       });
     });
@@ -200,7 +190,7 @@ describe('WebSocketHelper', () => {
     });
 
     it('config 정보를 기입하면 해당 정보가 반영된다', async () => {
-      const config: IClientConfig = {
+      const config: ClientConfig = {
         maxPayload: 100 * 1024,
         autoPong: false,
       };
