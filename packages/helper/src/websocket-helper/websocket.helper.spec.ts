@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 import { WebsocketClient } from './websocket.helper';
-import { IClientConfig } from './websocket.interface';
+import { ClientConfig } from './websocket.interface';
 import { DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_DELAY } from './websocket.constant';
 
 describe('WebSocketHelper', () => {
@@ -47,7 +47,7 @@ describe('WebSocketHelper', () => {
       });
 
       it('config 정보를 기입하면 해당 정보가 반영된다', async () => {
-        const config: IClientConfig = {
+        const config: ClientConfig = {
           maxPayload: 100 * 1024,
           autoPong: false,
           perMessageDeflate: false,
@@ -200,7 +200,7 @@ describe('WebSocketHelper', () => {
     });
 
     it('config 정보를 기입하면 해당 정보가 반영된다', async () => {
-      const config: IClientConfig = {
+      const config: ClientConfig = {
         maxPayload: 100 * 1024,
         autoPong: false,
       };

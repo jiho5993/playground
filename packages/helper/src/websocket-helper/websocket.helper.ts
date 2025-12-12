@@ -1,46 +1,64 @@
 import WebSocket from 'ws';
 import * as _ from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
-import { IClientConfig, IReconnectConfig } from './websocket.interface';
+import { ClientConfig, ReconnectConfig } from './websocket.interface';
 import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, WebsocketState } from './websocket.constant';
 
 export class WebsocketClient {
   private client: WebSocket | null = null;
   private readonly url: string;
-  private readonly clientConfig: IClientConfig;
-  private readonly reconnectConfig: IReconnectConfig;
+  private readonly clientConfig: ClientConfig;
+  private readonly reconnectConfig: ReconnectConfig;
   private reconnectAttempts = 0;
 
   private promiseAwaitingResponse = new Map<string | number, any>();
 
-  constructor(url: string, config: IClientConfig = {}) {
+  constructor(url: string, config: ClientConfig = {}) {
     if (!WebsocketClient.isValidUrl(url)) {
       throw new Error('Url must start with `wss://`, `ws://`, `wss+unix://`, or `ws+unix://`.');
     }
 
     this.url = url;
-    this.reconnectConfig = WebsocketClient.getReconnectConfig(config);
-    this.clientConfig = WebsocketClient.getClientConfig(config);
+    this.reconnectConfig = WebsocketClient.createReconnectConfig(config);
+    this.clientConfig = WebsocketClient.createClientConfig(config);
   }
 
-  static async createWithConnection(url: string, config: IClientConfig = {}): Promise<WebsocketClient> {
+  /**
+   * Websocket 클라이언트를 생성하고 연결을 시도합니다.
+   */
+  static async createWithConnection(url: string, config: ClientConfig = {}): Promise<WebsocketClient> {
     const websocketClient = new WebsocketClient(url, config);
     await websocketClient.createConnection();
     return websocketClient;
   }
 
+  /**
+   * 유효한 Websocket URL인지 검사합니다.
+   */
   static isValidUrl(url: string): boolean {
     return url.startsWith('wss://') || url.startsWith('ws://') || url.startsWith('wss+unix://') || url.startsWith('ws+unix://');
   }
 
+  /**
+   * Websocket 클라이언트가 서버와 연결되어 있는지 확인합니다.
+   */
   isConnected(): boolean {
     return this.state === WebSocket.OPEN;
   }
 
+  /**
+   * 현재 응답 대기중인 요청이 있는지 확인합니다.
+   */
   isEmptyAwaitingResponse(): boolean {
     return this.promiseAwaitingResponse.size === 0;
   }
 
+  /**
+   * Request ID를 생성합니다.
+   *
+   * payload에 id가 존재한다면 해당 id를 사용하고,
+   * 없으면 uuid를 생성하여 요청하도록 합니다.
+   */
   createRequestId(payload?: any): string | number {
     if (Array.isArray(payload) && payload.length > 0) {
       if (payload[0]?.id) {
@@ -55,6 +73,10 @@ export class WebsocketClient {
     return uuidv4();
   }
 
+  /**
+   * Websocket 요청을 위한 메시지를 만듭니다.
+   * payload를 String 형태로 변환합니다.
+   */
   createRequestMessage(requestId: string | number, payload: any): string {
     if (Array.isArray(payload) && payload.length > 0) {
       payload[0].id = requestId;
@@ -64,17 +86,22 @@ export class WebsocketClient {
     return JSON.stringify({ ...payload, id: requestId });
   }
 
+  /**
+   * 해당 메서드는 연결이 완료되어 `open` 이벤트가 발생하면, Promise 내부에서 필요한 이벤트들을 등록하도록 하여 연결을 완료합니다.
+   *
+   * 동기적으로 실행합니다.
+   *
+   * connection 성공 여부
+   * 1. 실패시 : 연결이 실페해서 `error` 이벤트가 발생한다면, `onConnectionFailed` 메소드가 호출됩니다.
+   * 2. 성공시 : `open` event가 발생하고, 이후부터 `error`, `close`, `message` 등 새로운 이벤트 함수를 등록합니다.
+   */
   async createConnection(): Promise<void> {
     if (this.isConnected()) {
       return Promise.resolve();
     }
 
     /**
-     * new WebSocket()이 실행될 경우, WebSocket 객체가 만들어지고, connection을 비동기적으로 시도한다.
-     *
-     * connection 성공 여부
-     * 1. 실패시 : 연결이 실페해서 error 이벤트가 발생한다면, onConnectionFailed 메소드가 호출된다.
-     * 2. 성공시 : open event가 발생하고, 이후부터 error, close, message 등 새로운 이벤트 함수를 등록한다.
+     * new WebSocket()이 실행될 경우, WebSocket 객체가 만들어지고 Connection을 비동기적으로 시도합니다.
      */
     this.client = new WebSocket(this.url, this.clientConfig);
     this.client.on('error', this.onConnectionFailed.bind(this));
@@ -93,6 +120,11 @@ export class WebsocketClient {
     });
   }
 
+  /**
+   * JSON-RPC 2.0 형태의 Payload 메시지를 전송합니다.
+   *
+   * json-rpc 2.0 spec : https://www.jsonrpc.org/specification
+   */
   async sendReceiveMessage(payload: any): Promise<any> {
     if (!this.isConnected() || _.isNull(this.client)) {
       throw new Error('Websocket is not connected');
@@ -116,6 +148,11 @@ export class WebsocketClient {
     return promise;
   }
 
+  /**
+   * Websocket 객체가 생성되고 연결에 실패할 때 호출됩니다.
+   *
+   * 만약 `reconnect` 옵션이 허용되어 있다면, 재연결을 시도합니다.
+   */
   private onConnectionFailed(error: Error): void {
     if (this.client) {
       this.client.removeAllListeners();
@@ -130,6 +167,9 @@ export class WebsocketClient {
     throw new Error(`Websocket connection error: ${error.message}`);
   }
 
+  /**
+   * Websocket 메시지를 전송하는 이벤트 함수입니다.
+   */
   private onMessage(data: any) {
     const result = JSON.parse(data);
 
@@ -150,6 +190,9 @@ export class WebsocketClient {
     this.promiseAwaitingResponse.delete(id);
   }
 
+  /**
+   * 에러를 처리하는 이벤트 함수입니다.
+   */
   private onError(error: any): void {
     if (error instanceof Error) {
       throw error;
@@ -157,6 +200,10 @@ export class WebsocketClient {
     throw new Error(`WebSocket error: ${error}`);
   }
 
+  /**
+   * Websocket이 종료되었을때 실행되는 이벤트 함수입니다.
+   * TODO: 리팩토링 이후 내용 추가 작성 필요
+   */
   private onClose(code: number, reason: any): void {
     if (this.isConnected()) {
       this.client.removeAllListeners();
@@ -166,6 +213,11 @@ export class WebsocketClient {
     }
   }
 
+  /**
+   * 재시도 연결을 시도합니다.
+   *
+   * `attempts`만큼 재연결을 시도하며, `delay`를 사용하여 재연결 텀을 설정할 수 있습니다.
+   */
   private reconnect(): void {
     if (_.isUndefined(this.reconnectConfig.attempts)) {
       throw new Error('Reconnect attempts is not defined');
@@ -185,12 +237,35 @@ export class WebsocketClient {
     }, this.reconnectConfig.delay);
   }
 
+  /**
+   * Websocket 연결 상태를 확인합니다.
+   *
+   * ```
+   * 0 : Connecting
+   * 1 : Open
+   * 2 : Closing
+   * 3 : Closed
+   * ```
+   */
   private get state(): WebsocketState {
     return this.client ? this.client.readyState : WebSocket.CLOSED;
   }
 
-  private static getReconnectConfig(config: IClientConfig): IReconnectConfig {
-    const reconnectConfig: IReconnectConfig = {
+  /**
+   * Reconnect Config를 설정합니다.
+   *
+   * 기본적으로 reconnect를 사용하지 않으며,
+   * `delay`는 1000ms, `attempts`는 5인 기본 값으로 생성합니다.
+   * ```json
+   * {
+   *   reconnect: false,
+   *   delay: 1000,
+   *   attempts: 5
+   * }
+   * ```
+   */
+  private static createReconnectConfig(config: ClientConfig): ReconnectConfig {
+    const reconnectConfig: ReconnectConfig = {
       reconnect: false,
       delay: DEFAULT_RECONNECT_DELAY,
       attempts: DEFAULT_RECONNECT_ATTEMPTS,
@@ -211,8 +286,18 @@ export class WebsocketClient {
     return reconnectConfig;
   }
 
-  private static getClientConfig(config: IClientConfig): IClientConfig {
-    const clientConfig: IClientConfig = {
+  /**
+   * WebSocket Client Config를 설정합니다.
+   *
+   * 기본적으로 maxPayload가 100MB로 설정됩니다.
+   * ```json
+   * {
+   *   maxPayload: 100 * 1024 * 1024
+   * }
+   * ```
+   */
+  private static createClientConfig(config: ClientConfig): ClientConfig {
+    const clientConfig: ClientConfig = {
       maxPayload: _.isNumber(config.maxPayload) && config.maxPayload > 0 ? config.maxPayload : DEFAULT_MAX_PAYLOAD,
       ...config,
     };
