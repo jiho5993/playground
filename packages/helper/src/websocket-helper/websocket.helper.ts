@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import * as _ from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
-import { ClientConfig, ReconnectConfig } from './websocket.interface';
+import { ClientConfig, RpcRequestId, RpcInputData, JsonRpc2Packet, ReconnectConfig } from './websocket.interface';
 import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, WebsocketState } from './websocket.constant';
 
 export class WebsocketClient {
@@ -54,22 +54,9 @@ export class WebsocketClient {
   }
 
   /**
-   * Request ID를 생성합니다.
-   *
-   * payload에 id가 존재한다면 해당 id를 사용하고,
-   * 없으면 uuid를 생성하여 요청하도록 합니다.
+   * uuid v4로 Request ID를 생성합니다.
    */
-  createRequestId(payload?: any): string | number {
-    if (Array.isArray(payload) && payload.length > 0) {
-      if (payload[0]?.id) {
-        return payload[0].id;
-      }
-    }
-
-    if (payload?.id) {
-      return payload.id;
-    }
-
+  private createRequestId(): RpcRequestId {
     return uuidv4();
   }
 
@@ -77,13 +64,22 @@ export class WebsocketClient {
    * Websocket 요청을 위한 메시지를 만듭니다.
    * payload를 String 형태로 변환합니다.
    */
-  createRequestMessage(requestId: string | number, payload: any): string {
-    if (Array.isArray(payload) && payload.length > 0) {
-      payload[0].id = requestId;
-      return JSON.stringify(payload);
+  createJsonRpc2Packet(requestId: RpcRequestId, payload: RpcInputData): JsonRpc2Packet {
+    if (Array.isArray(payload)) {
+      return payload.map(({ method, params }) => ({
+        jsonrpc: '2.0',
+        id: requestId,
+        method,
+        params,
+      }));
     }
 
-    return JSON.stringify({ ...payload, id: requestId });
+    return {
+      jsonrpc: '2.0',
+      id: requestId,
+      method: payload.method,
+      params: payload.params,
+    };
   }
 
   /**
@@ -125,21 +121,21 @@ export class WebsocketClient {
    *
    * json-rpc 2.0 spec : https://www.jsonrpc.org/specification
    */
-  async sendReceiveMessage(payload: any): Promise<any> {
+  async sendReceiveRpcCall<TResponse = any>(payload: RpcInputData): Promise<TResponse> {
     if (!this.isConnected() || _.isNull(this.client)) {
       throw new Error('Websocket is not connected');
     }
 
-    const id = this.createRequestId(payload);
-    const message = this.createRequestMessage(id, payload);
+    const requestId = this.createRequestId();
+    const packet = this.createJsonRpc2Packet(requestId, payload);
 
-    if (this.promiseAwaitingResponse.has(id)) {
-      throw new Error(`Request with id "${id}" is already pending`);
+    if (this.promiseAwaitingResponse.has(requestId)) {
+      throw new Error(`Request with id "${requestId}" is already pending`);
     }
 
-    const promise = new Promise((resolve, reject) => this.promiseAwaitingResponse.set(id, { resolve, reject }));
+    const promise = new Promise<TResponse>((resolve, reject) => this.promiseAwaitingResponse.set(requestId, { resolve, reject }));
 
-    this.client.send(message, (err) => {
+    this.client.send(JSON.stringify(packet), (err) => {
       if (err) {
         throw new Error(`Failed to send message: ${err}`);
       }
