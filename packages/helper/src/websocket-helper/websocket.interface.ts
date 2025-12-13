@@ -14,7 +14,17 @@ export interface ClientConfig {
   protocolVersion?: number;
   perMessageDeflate?: boolean | PerMessageDeflateOptions;
   handshakeTimeout?: number;
+  timeout?: number;
   reconnectConfig?: ReconnectConfig;
+}
+
+/**
+ * `promiseAwaitingResponse` Value
+ */
+export interface AwaitingResponseKey {
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+  timeoutId: NodeJS.Timeout;
 }
 
 /**

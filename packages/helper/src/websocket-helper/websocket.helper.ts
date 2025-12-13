@@ -1,8 +1,8 @@
 import WebSocket from 'ws';
 import * as _ from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
-import { ClientConfig, RpcRequestId, RpcInputData, JsonRpc2Packet, ReconnectConfig } from './websocket.interface';
-import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, WebsocketState } from './websocket.constant';
+import { ClientConfig, RpcRequestId, RpcInputData, JsonRpc2Packet, ReconnectConfig, AwaitingResponseKey } from './websocket.interface';
+import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, DEFAULT_TIMEOUT, WebsocketState } from './websocket.constant';
 
 export class WebsocketClient {
   private client: WebSocket | null = null;
@@ -11,7 +11,7 @@ export class WebsocketClient {
   private readonly reconnectConfig: ReconnectConfig;
   private reconnectAttempts = 0;
 
-  private promiseAwaitingResponse = new Map<string | number, any>();
+  private promiseAwaitingResponse = new Map<RpcRequestId, AwaitingResponseKey>();
 
   constructor(url: string, config: ClientConfig = {}) {
     if (!WebsocketClient.isValidUrl(url)) {
@@ -133,10 +133,23 @@ export class WebsocketClient {
       throw new Error(`Request with id "${requestId}" is already pending`);
     }
 
-    const promise = new Promise<TResponse>((resolve, reject) => this.promiseAwaitingResponse.set(requestId, { resolve, reject }));
+    const promise = new Promise<TResponse>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.promiseAwaitingResponse.delete(requestId);
+        reject(new Error(`Request timed out after ${this.clientConfig.timeout} ms`));
+      }, this.clientConfig.timeout);
+
+      this.promiseAwaitingResponse.set(requestId, { resolve, reject, timeoutId });
+    });
 
     this.client.send(JSON.stringify(packet), (err) => {
       if (err) {
+        const awaitingResponse = this.promiseAwaitingResponse.get(requestId);
+        if (awaitingResponse) {
+          clearTimeout(awaitingResponse.timeoutId);
+          this.promiseAwaitingResponse.delete(requestId);
+          awaitingResponse.reject(new Error(`Failed to send message: ${err}`));
+        }
         throw new Error(`Failed to send message: ${err}`);
       }
     });
@@ -150,6 +163,8 @@ export class WebsocketClient {
    * 만약 `reconnect` 옵션이 허용되어 있다면, 재연결을 시도합니다.
    */
   private onConnectionFailed(error: Error): void {
+    this.rejectAllAwaitingPromises(`Connection failed: ${error.message}`);
+
     if (this.client) {
       this.client.removeAllListeners();
       this.client = null;
@@ -176,32 +191,34 @@ export class WebsocketClient {
       id = result.id;
     }
 
-    if (!this.promiseAwaitingResponse.has(id)) {
+    if (_.isNil(id) || !this.promiseAwaitingResponse.has(id)) {
       throw new Error(`No existing promise: ${JSON.stringify(result)}`);
     }
 
-    const promise = this.promiseAwaitingResponse.get(id);
-    promise.resolve(result);
-
-    this.promiseAwaitingResponse.delete(id);
+    const awaitingResponse = this.promiseAwaitingResponse.get(id);
+    if (awaitingResponse) {
+      clearTimeout(awaitingResponse.timeoutId);
+      awaitingResponse.resolve(result);
+      this.promiseAwaitingResponse.delete(id);
+    }
   }
 
   /**
    * 에러를 처리하는 이벤트 함수입니다.
    */
-  private onError(error: any): void {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error(`WebSocket error: ${error}`);
+  private onError(error: Error): void {
+    this.rejectAllAwaitingPromises(`WebSocket error: ${error.message}`);
   }
 
   /**
    * Websocket이 종료되었을때 실행되는 이벤트 함수입니다.
    * TODO: 리팩토링 이후 내용 추가 작성 필요
    */
-  private onClose(code: number, reason: any): void {
-    if (this.isConnected()) {
+  private onClose(code: number, reason: Buffer): void {
+    const reasonString = reason.toString();
+    this.rejectAllAwaitingPromises(`Connection closed. Code: ${code}, Reason: ${reasonString}`);
+
+    if (this.client) {
       this.client.removeAllListeners();
       this.client = null;
     } else {
@@ -231,6 +248,19 @@ export class WebsocketClient {
         this.reconnectAttempts = 0;
       }
     }, this.reconnectConfig.delay);
+  }
+
+  /**
+   * 대기중인 모든 Promise를 reject하고
+   * promiseAwaitingResponse Map을 모두 비웁니다.
+   */
+  private rejectAllAwaitingPromises(reason: string): void {
+    const error = new Error(reason);
+    for (const [_, awaitingResponse] of this.promiseAwaitingResponse.entries()) {
+      clearTimeout(awaitingResponse.timeoutId);
+      awaitingResponse.reject(error);
+    }
+    this.promiseAwaitingResponse.clear();
   }
 
   /**
@@ -295,6 +325,7 @@ export class WebsocketClient {
   private static createClientConfig(config: ClientConfig): ClientConfig {
     const clientConfig: ClientConfig = {
       maxPayload: _.isNumber(config.maxPayload) && config.maxPayload > 0 ? config.maxPayload : DEFAULT_MAX_PAYLOAD,
+      timeout: _.isNumber(config.timeout) && config.timeout > 0 ? config.timeout : DEFAULT_TIMEOUT,
       ...config,
     };
 
