@@ -9,10 +9,20 @@ describe('WebSocketHelper', () => {
   const wss = new WebSocket.Server({ port: 8080 });
 
   beforeAll(() => {
-    /** 메시지를 그대로 반환하는 테스트용 웹소켓 서버 생성 */
+    /**
+     * 메시지를 그대로 반환하는 테스트용 웹소켓 서버 생성.
+     * from property가 추가로 붙어서 응답된다.
+     */
     wss.on('connection', (websocket) => {
       websocket.on('message', (message: any) => {
         const data = JSON.parse(message);
+        if (Array.isArray(data)) {
+          for (const value of data) {
+            value.from = 'server';
+          }
+        } else {
+          data.from = 'server';
+        }
         websocket.send(JSON.stringify(data));
       });
     });
@@ -128,6 +138,7 @@ describe('WebSocketHelper', () => {
           const result = await client.sendReceiveRpcCall({ ...payload });
 
           expect(result.id).toBeDefined();
+          expect(result).toHaveProperty('from', 'server');
           expect(result).toHaveProperty('jsonrpc', '2.0');
           expect(result).toHaveProperty('method', 'Hello, World!');
           expect(result).toHaveProperty('params', []);
@@ -144,6 +155,7 @@ describe('WebSocketHelper', () => {
 
             expect(result.id).toBeDefined();
             expect(uuidValidate(result.id)).toBeTruthy();
+            expect(result).toHaveProperty('from', 'server');
           }
         });
 
@@ -163,6 +175,7 @@ describe('WebSocketHelper', () => {
 
           for (const response of result) {
             expect(response.id).toBeDefined();
+            expect(response).toHaveProperty('from', 'server');
             expect(response).toHaveProperty('jsonrpc', '2.0');
           }
         });
@@ -226,7 +239,9 @@ describe('WebSocketHelper', () => {
           const payload: RpcInputData = { method: 'this should timeout', params: [] };
 
           await expect(client.sendReceiveRpcCall(payload)).rejects.toThrow();
-          expect(client.isEmptyAwaitingResponse()).toBeTruthy();
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          expect(client.responsePoolManager.isEmpty()).toBeTruthy();
         });
       });
     });
