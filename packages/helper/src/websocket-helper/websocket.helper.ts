@@ -2,7 +2,8 @@ import WebSocket from 'ws';
 import * as _ from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
 import { ClientConfig, RpcRequestId, RpcInputData, JsonRpc2Packet, ReconnectConfig } from './websocket.interface';
-import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, WebsocketState } from './websocket.constant';
+import { DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_RECONNECT_DELAY, DEFAULT_TIMEOUT, WebsocketState } from './websocket.constant';
+import { ResponsePoolManager } from './response-pool/response-pool.manager';
 
 export class WebsocketClient {
   private client: WebSocket | null = null;
@@ -11,7 +12,7 @@ export class WebsocketClient {
   private readonly reconnectConfig: ReconnectConfig;
   private reconnectAttempts = 0;
 
-  private promiseAwaitingResponse = new Map<string | number, any>();
+  private readonly responsePoolManager = new ResponsePoolManager();
 
   constructor(url: string, config: ClientConfig = {}) {
     if (!WebsocketClient.isValidUrl(url)) {
@@ -44,13 +45,6 @@ export class WebsocketClient {
    */
   isConnected(): boolean {
     return this.state === WebSocket.OPEN;
-  }
-
-  /**
-   * 현재 응답 대기중인 요청이 있는지 확인합니다.
-   */
-  isEmptyAwaitingResponse(): boolean {
-    return this.promiseAwaitingResponse.size === 0;
   }
 
   /**
@@ -128,20 +122,15 @@ export class WebsocketClient {
 
     const requestId = this.createRequestId();
     const packet = this.createJsonRpc2Packet(requestId, payload);
-
-    if (this.promiseAwaitingResponse.has(requestId)) {
-      throw new Error(`Request with id "${requestId}" is already pending`);
-    }
-
-    const promise = new Promise<TResponse>((resolve, reject) => this.promiseAwaitingResponse.set(requestId, { resolve, reject }));
+    const awaitingResponse = this.responsePoolManager.create(requestId, this.clientConfig.timeout);
 
     this.client.send(JSON.stringify(packet), (err) => {
       if (err) {
-        throw new Error(`Failed to send message: ${err}`);
+        this.responsePoolManager.reject(requestId, err);
       }
     });
 
-    return promise;
+    return awaitingResponse;
   }
 
   /**
@@ -150,6 +139,8 @@ export class WebsocketClient {
    * 만약 `reconnect` 옵션이 허용되어 있다면, 재연결을 시도합니다.
    */
   private onConnectionFailed(error: Error): void {
+    this.responsePoolManager.rejectAll(`Connection failed: ${error.message}`);
+
     if (this.client) {
       this.client.removeAllListeners();
       this.client = null;
@@ -176,32 +167,28 @@ export class WebsocketClient {
       id = result.id;
     }
 
-    if (!this.promiseAwaitingResponse.has(id)) {
-      throw new Error(`No existing promise: ${JSON.stringify(result)}`);
+    if (_.isNil(id) || !this.responsePoolManager.hasAwaitingResponse(id)) {
+      throw new Error(`Received message with unknown or missing id: ${JSON.stringify(result)}`);
     }
 
-    const promise = this.promiseAwaitingResponse.get(id);
-    promise.resolve(result);
-
-    this.promiseAwaitingResponse.delete(id);
+    this.responsePoolManager.resolve(id, result);
   }
 
   /**
    * 에러를 처리하는 이벤트 함수입니다.
    */
-  private onError(error: any): void {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error(`WebSocket error: ${error}`);
+  private onError(error: Error): void {
+    this.responsePoolManager.rejectAll(`WebSocket error: ${error.message}`);
   }
 
   /**
    * Websocket이 종료되었을때 실행되는 이벤트 함수입니다.
-   * TODO: 리팩토링 이후 내용 추가 작성 필요
    */
-  private onClose(code: number, reason: any): void {
-    if (this.isConnected()) {
+  private onClose(code: number, reason: Buffer): void {
+    const reasonString = reason.toString();
+    this.responsePoolManager.rejectAll(`Connection closed. Code: ${code}, Reason: ${reasonString}`);
+
+    if (this.client) {
       this.client.removeAllListeners();
       this.client = null;
     } else {
@@ -295,6 +282,7 @@ export class WebsocketClient {
   private static createClientConfig(config: ClientConfig): ClientConfig {
     const clientConfig: ClientConfig = {
       maxPayload: _.isNumber(config.maxPayload) && config.maxPayload > 0 ? config.maxPayload : DEFAULT_MAX_PAYLOAD,
+      timeout: _.isNumber(config.timeout) && config.timeout > 0 ? config.timeout : DEFAULT_TIMEOUT,
       ...config,
     };
 

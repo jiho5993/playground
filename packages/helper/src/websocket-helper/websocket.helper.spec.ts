@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import { WebsocketClient } from './websocket.helper';
 import { ClientConfig, RpcInputData } from './websocket.interface';
-import { DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_DELAY } from './websocket.constant';
+import { DEFAULT_RECONNECT_ATTEMPTS, DEFAULT_MAX_PAYLOAD, DEFAULT_RECONNECT_DELAY, DEFAULT_TIMEOUT } from './websocket.constant';
 import { validate as uuidValidate } from 'uuid';
 
 describe('WebSocketHelper', () => {
@@ -9,10 +9,20 @@ describe('WebSocketHelper', () => {
   const wss = new WebSocket.Server({ port: 8080 });
 
   beforeAll(() => {
-    /** 메시지를 그대로 반환하는 테스트용 웹소켓 서버 생성 */
+    /**
+     * 메시지를 그대로 반환하는 테스트용 웹소켓 서버 생성.
+     * from property가 추가로 붙어서 응답된다.
+     */
     wss.on('connection', (websocket) => {
       websocket.on('message', (message: any) => {
         const data = JSON.parse(message);
+        if (Array.isArray(data)) {
+          for (const value of data) {
+            value.from = 'server';
+          }
+        } else {
+          data.from = 'server';
+        }
         websocket.send(JSON.stringify(data));
       });
     });
@@ -38,6 +48,9 @@ describe('WebSocketHelper', () => {
         expect(result.clientConfig.maxPayload).toEqual(DEFAULT_MAX_PAYLOAD);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
+        expect(result.clientConfig.timeout).toEqual(DEFAULT_TIMEOUT);
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         expect(result.reconnectConfig.reconnect).not.toBeTruthy();
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
@@ -50,6 +63,7 @@ describe('WebSocketHelper', () => {
       it('config 정보를 기입하면 해당 정보가 반영된다', async () => {
         const config: ClientConfig = {
           maxPayload: 100 * 1024,
+          timeout: 10 * 1000, // 10s
           autoPong: false,
           perMessageDeflate: false,
           protocolVersion: 8,
@@ -61,6 +75,9 @@ describe('WebSocketHelper', () => {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         expect(result.client._receiver._maxPayload).toEqual(config.maxPayload);
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        expect(result.clientConfig.timeout).toEqual(config.timeout);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         expect(result.client._autoPong).toEqual(config.autoPong);
@@ -111,52 +128,121 @@ describe('WebSocketHelper', () => {
     });
 
     describe('메시지 요청 및 응답', () => {
-      it('메시지 요청에 성공하면 requestId가 uuid v4로 할당되고, json-rpc 2.0 spec을 만족하는 요청과 같은 응답 메시지를 받는다', async () => {
-        const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
-        await client.createConnection();
+      describe('기본 기능 검증 (메시지 송수신)', () => {
+        it('메시지 요청에 성공하면 requestId가 uuid v4로 할당되고, json-rpc 2.0 spec을 만족하는 요청과 같은 응답 메시지를 받는다', async () => {
+          const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
+          await client.createConnection();
 
-        const payload: RpcInputData = { method: 'Hello, World!', params: [] };
-
-        const result = await client.sendReceiveRpcCall({ ...payload });
-
-        expect(result.id).toBeDefined();
-        expect(result).toHaveProperty('jsonrpc', '2.0');
-        expect(result).toHaveProperty('method', 'Hello, World!');
-        expect(result).toHaveProperty('params', []);
-      });
-
-      it('1000번의 요청 모두 올바른 uuid를 생성한다.', async () => {
-        const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
-        await client.createConnection();
-
-        for (let i = 1; i <= 1000; i++) {
           const payload: RpcInputData = { method: 'Hello, World!', params: [] };
 
           const result = await client.sendReceiveRpcCall({ ...payload });
 
           expect(result.id).toBeDefined();
-          expect(uuidValidate(result.id)).toBeTruthy();
-        }
+          expect(result).toHaveProperty('from', 'server');
+          expect(result).toHaveProperty('jsonrpc', '2.0');
+          expect(result).toHaveProperty('method', 'Hello, World!');
+          expect(result).toHaveProperty('params', []);
+        });
+
+        it('1000번의 요청 모두 올바른 uuid를 생성한다.', async () => {
+          const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
+          await client.createConnection();
+
+          for (let i = 1; i <= 1000; i++) {
+            const payload: RpcInputData = { method: 'Hello, World!', params: [] };
+
+            const result = await client.sendReceiveRpcCall({ ...payload });
+
+            expect(result.id).toBeDefined();
+            expect(uuidValidate(result.id)).toBeTruthy();
+            expect(result).toHaveProperty('from', 'server');
+          }
+        });
+
+        it('여러 메시지를 일괄 요청하고 응답을 받을 수 있다.', async () => {
+          const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
+          await client.createConnection();
+
+          const payloads: RpcInputData = [
+            { method: '1st message', params: [] },
+            { method: '2nd message', params: [] },
+            { method: '3rd message', params: [] },
+          ];
+          const result = await client.sendReceiveRpcCall(payloads);
+
+          expect(result).toBeInstanceOf(Array);
+          expect(result).toHaveLength(3);
+
+          for (const response of result) {
+            expect(response.id).toBeDefined();
+            expect(response).toHaveProperty('from', 'server');
+            expect(response).toHaveProperty('jsonrpc', '2.0');
+          }
+        });
       });
 
-      it('여러 메시지를 일괄 요청하고 응답을 받을 수 있다.', async () => {
-        const client = new WebsocketClient(WEBSOCKET_SERVER_URL);
-        await client.createConnection();
+      describe('메시지 송수신 Timeout 검증', () => {
+        const TIMEOUT_TEST_PORT = 8081;
+        const TIMEOUT_SERVER_URL = `ws://localhost:${TIMEOUT_TEST_PORT}`;
+        let timeoutWss: WebSocket.Server | null = null;
 
-        const payloads: RpcInputData = [
-          { method: '1st message', params: [] },
-          { method: '2nd message', params: [] },
-          { method: '3rd message', params: [] },
-        ];
-        const result = await client.sendReceiveRpcCall(payloads);
+        /**
+         * Timeout 전용 서버 생성
+         */
+        beforeEach(async () => {
+          await new Promise<void>((resolve) => {
+            timeoutWss = new WebSocket.Server({ port: TIMEOUT_TEST_PORT }, resolve);
+          });
 
-        expect(result).toBeInstanceOf(Array);
-        expect(result).toHaveLength(3);
+          timeoutWss.on('connection', (ws) => {
+            ws.on('message', () => {
+              // 의도적으로 응답하지 않는다.
+            });
+          });
+        });
 
-        for (const response of result) {
-          expect(response.id).toBeDefined();
-          expect(response).toHaveProperty('jsonrpc', '2.0');
-        }
+        /**
+         * Timeout 전용 서버 종료
+         */
+        afterEach(async () => {
+          if (timeoutWss) {
+            for (const ws of timeoutWss.clients) {
+              ws.terminate();
+            }
+
+            await new Promise<void>((resolve, reject) => {
+              timeoutWss.close((err) => {
+                if (err) reject(err);
+                resolve();
+              });
+            });
+          }
+        });
+
+        it('설정된 시간이 지나도 응답이 없을 경우, Timeout 에러를 발생시민다.', async () => {
+          const config: ClientConfig = {
+            timeout: 100, // 100ms
+          };
+          const client = await WebsocketClient.createWithConnection(TIMEOUT_SERVER_URL, config);
+
+          const payload: RpcInputData = { method: 'this should timeout', params: [] };
+
+          await expect(client.sendReceiveRpcCall(payload)).rejects.toThrow(`Request timed out after 100 ms`);
+        });
+
+        it('Timeout 발생 시 promiseAwaitingResponse Map에서 해당 요청이 제거된다.', async () => {
+          const config: ClientConfig = {
+            timeout: 100, // 100ms
+          };
+          const client = await WebsocketClient.createWithConnection(TIMEOUT_SERVER_URL, config);
+
+          const payload: RpcInputData = { method: 'this should timeout', params: [] };
+
+          await expect(client.sendReceiveRpcCall(payload)).rejects.toThrow();
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          expect(client.responsePoolManager.isEmpty()).toBeTruthy();
+        });
       });
     });
   });

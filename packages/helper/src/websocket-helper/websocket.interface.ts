@@ -14,6 +14,7 @@ export interface ClientConfig {
   protocolVersion?: number;
   perMessageDeflate?: boolean | PerMessageDeflateOptions;
   handshakeTimeout?: number;
+  timeout?: number;
   reconnectConfig?: ReconnectConfig;
 }
 
