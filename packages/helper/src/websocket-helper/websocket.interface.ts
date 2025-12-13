@@ -19,15 +19,6 @@ export interface ClientConfig {
 }
 
 /**
- * `promiseAwaitingResponse` Value
- */
-export interface AwaitingResponseKey {
-  resolve: (value: any) => void;
-  reject: (reason?: any) => void;
-  timeoutId: NodeJS.Timeout;
-}
-
-/**
  * 사용자가 RPC 요청을 할 때 전송할 데이터 인터페이스와 타입
  *
  * 기본적으로 Bulk 요청도 허용합니다.
